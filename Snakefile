@@ -181,7 +181,8 @@ rule predict_rDNA:
         """
 
 rule match_passengers_to_sailors:
-    # Explore ribosomal DNA similarites with Polyorchis and Brachycladium goliath
+    # Confirm identity of Passengers by blasting holozoa SSU or LSU sequences identified in Passengers samples
+    # against the identified main contig from Sailors
     input:
         seqs="holozoa-{type}_contigs-Undetermined_S0_L001.fasta",
         contig="main_contig.fasta",
