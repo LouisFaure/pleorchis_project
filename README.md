@@ -35,10 +35,11 @@ ffq SRR23342065
 
 ### Extract contigs
 
-In the study, we used high quality reads from samples "Sailors" from Lane 2 of the flowcell. While not enough reads could be determined for the "Passengers" sample, we leveraged the NovaSeq Xp Workflow, which allowed us to use the Undetermined reads from Lane 1.
+In the study, "Sailors" and "Passengers" sampled were loaded into Lane 2 and 1 respectively. We used high quality reads from samples "Sailors" from Lane 2 of the flowcell. While not enough reads could be determined for the "Passengers" sample, we leveraged the NovaSeq Xp Workflow, which allowed us to use the Undetermined reads from Lane 1 as our Passengers sample.
 
 ```bash
-snakemake -j 80 assembly_Sailors_S2_L002/contigs_500.fasta assembly_Undetermined_S0_L001/contigs_500.fasta
+snakemake -j 80 assembly_Sailors_S2_L002/contigs_500.fasta \
+                assembly_Undetermined_S0_L001/contigs_500.fasta
 ```
 
 The outputs are fasta files containing all contigs that are at least 500bp long.
@@ -50,7 +51,7 @@ All the contigs of the high quality "Sailors" sample are BLASTed against SSU and
 ```bash
 snakemake -j 40 main_contig.fasta 
 ```
-The output is a single contig in fasta format, as we have found out that only one (the longest) was having multiple hits on Holozoa clade.
+The output is a single contig in fasta format, as we have found out that only one (the longest) was having multiple hits with holozoan LSU/SSU.
 
 ### Obtain the sequences of the new 18S, 5.8S and 28S ribosomal DNA
 
@@ -59,10 +60,11 @@ From that main contig, we predict ribosomal DNA seqs using HMMER 3.1 (using barr
 ```bash
 snakemake -j 1 main_contig_rDNA.fasta
 ```
+The output sequences are the ones that have been submitted to GenBank.
 
 #### Compare SSU/LSU sequences from "passenger" sample to main contig rDNA
 
-To confirm the identity of Passengers, we BLAST holozoa SSU or LSU sequences identified in Passengers samples against the identified main contig from Sailors
+To confirm the identity of Passengers, we BLASTed holozoan SSU or LSU-containing contigs from Passengers samples against the identified main contig from Sailors
 
 ```bash
 snakemake -j 1 blast-main_contig-SSU-Undetermined_S0_L001.txt
