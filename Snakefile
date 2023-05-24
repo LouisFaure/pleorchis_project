@@ -49,11 +49,11 @@ rule filter_contigs:
     input:
         "assembly_{sample}/contigs.fasta"
     output:
-        "assembly_{sample}/contigs_500.fasta"
+        "contigs_500-{sample}.fasta"
     shell:
-        "seqkit seq -g -m 300 {input}  > {output}"
+        "seqkit seq -g -m 500 {input}  > {output}"
 
-rule generate_blastdb:
+rule generate_silva_blastdb:
     # Prepare blastdb with Silva databases containing SSU and LSU sequences
     output:
         "db/silva_{type}.nsq",
@@ -69,7 +69,7 @@ rule blast_contigs:
     # BLAST contigs against SSU and LSU sequences, keep only from Holozoa clade
     input:
         db="db/silva_{type}.nsq",
-        contigs="assembly_{sample}/contigs_500.fasta",
+        contigs="contigs_500-{sample}.fasta",
     output:
         "blast_silva_holozoa-{sample}-{type}.txt",
     threads: 20
@@ -84,7 +84,7 @@ rule get_hit_contigs:
     # Extract contigs that succesfully matched to LSU/SSU for inspection
     input:
         blast="blast_silva_holozoa-{sample}-{subunit}.txt",
-        contigs="assembly_{sample}/contigs_500.fasta"
+        contigs="contigs_500-{sample}.fasta"
     output:
         "holozoa-{subunit}_contigs-{sample}.fasta",
     shell:
@@ -101,10 +101,10 @@ rule extract_main_contig:
     # From the Sailors sample, extract the main contig that match to both LSU and SSU seqs from trematoda
     input:
         blast="blast_silva_holozoa-Sailors_S2_L002-SSU.txt",
-        contigs="assembly_Sailors_S2_L002/contigs_500.fasta"
+        contigs="contigs_500-Sailors_S2_L002.fasta"
     output:
-        fasta="main_contig.fasta",
-        fai="main_contig.fasta.fai",
+        fasta="main_contig-Sailors_S2_L002.fasta",
+        fai="main_contig-Sailors_S2_L002.fasta.fai",
     shell:
         """
         seqname=$(head -n 1 {input.blast} | awk '{{print $1}}')
@@ -112,26 +112,91 @@ rule extract_main_contig:
         samtools faidx {output.fasta}
         """
 
+rule setup_nt_blastdb:
+    # WARNING: this step will take a lot of time, as it will download the whole eukaryote blast database
+    output:
+        db="db/nt_euk.nto",
+    shell:
+        """
+        wget https://raw.githubusercontent.com/jrherr/bioinformatics_scripts/master/perl_scripts/update_blastdb.pl
+        perl update_blastdb.pl --decompress db/nt_euk
+        """
+
+rule setup_taxonomy:
+    output:
+        names="taxo/names.dmp",
+        nodes="taxo/nodes.dmp",
+        taxtrace="tax_trace.pl",
+    shell:
+        """
+        wget https://raw.githubusercontent.com/theo-allnutt-bioinformatics/scripts/master/tax_trace.pl
+        wget https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz
+        mkdir -p taxo && tar xvf taxdump.tar.gz -C taxo
+        """
+
+rule get_taxonomy:
+    input:
+        contig="contigs_500-{sample}.fasta",
+        names="taxo/names.dmp",
+        nodes="taxo/nodes.dmp",
+        taxtrace="tax_trace.pl",
+        db="db/nt_euk.nto",
+    output:
+        out="contigs_trematoda-{sample}.fasta",
+    shell:
+        """
+        blastn -query {input.contig} -db db/nt_euk -num_threads 40 -outfmt '6 qseqid sseqid evalue pident stitle staxids' -max_target_seqs 1 -max_hsps 1 -out blast_temp.txt
+        cut -f1,6 blast_temp.txt > taxo_temp.txt
+        perl tax_trace.pl taxo/nodes.dmp taxo/names.dmp taxo_temp.txt taxids_export.txt
+        grep 'Trematoda' taxids_export.txt | cut -f1 > trematoda_contigs.txt
+        seqtk subseq {input.contig} trematoda_contigs.txt > {output.out}
+        rm trematoda_contigs.txt taxo_temp.txt taxids_export.txt blast_temp.txt
+        """
+
+
 rule check_alignment:
     # Re-map raw corrected reads against newly found main contig. Generate files needed to inspect aligment in
     # IGV browser http://igv.org/app/ (Genome: output from extract_main_contig, Tracks: present ouputs)
     input:
-        contig="main_contig.fasta",
+        contig="{seq}-{sample}.fasta",
         r1="spades_{sample}/corrected/{sample}_R1_paired.fastq.00.0_0.cor.fastq.gz",
         r2="spades_{sample}/corrected/{sample}_R2_paired.fastq.00.0_0.cor.fastq.gz",
     output:
-        bam="main_contig_mapping_{sample}.bam",
-        bai="main_contig_mapping_{sample}.bam.bai",
+        bam="{seq}-mapping-{sample}.bam",
+        bai="{seq}-mapping-{sample}.bam.bai",
     shell:
         """
         mkdir -p bwa
-        bwa index -p bwa/main_contig {input.contig}
-        bwa mem -t 40 bwa/main_contig {input.r1} {input.r2} > alignment.sam
+        bwa index -p bwa/{wildcards.seq} {input.contig}
+        bwa mem -t 40 bwa/{wildcards.seq} {input.r1} {input.r2} > alignment.sam
         samtools view -@ 10 -F 4 alignment.sam -o mapped.bam
         samtools sort mapped.bam > {output.bam}
         rm mapped.bam alignment.sam
         samtools index {output.bam}
         """
+
+rule get_read_stats:
+    input:
+        fastq="spades_{sample}/corrected/{sample}_R1_paired.fastq.00.0_0.cor.fastq.gz",
+        bam="{seq}-mapping-{sample}.bam",
+    output:
+        stat="{seq}-stats-{sample}.txt"
+    shell:
+        """
+        echo 'fastq reads: ' > {output.stat}
+        tools/fqcount {input.fastq} >> {output.stat}
+        echo '\nbam unique reads: ' >> {output.stat}
+        samtools view -c -F 2432 {input.bam} >> {output.stat}
+        """
+
+rule get_coverage:
+    # Compute mean read coverage for each sequences (each contigs)
+    input:
+        bam="{seq}-mapping-{sample}.bam"
+    output:
+        tsv="{seq}-coverage-{sample}.tsv"
+    shell:
+        "average-coverage.py {input.bam} > {output.tsv}"
 
 rule blast_nt:
     # BLAST the contig against whole NCBI nt databse (using gget tool)
@@ -157,7 +222,7 @@ rule trematoda_rDNA_blast:
 rule predict_rDNA:
     # Predict ribosomal DNA seqs using HMMER 3.1 (using barrnap wrapper)
     input:
-        "main_contig.fasta",
+        "main_contig-Sailors_S2_L002.fasta",
     output:
         "main_contig_rDNA.fasta",
     shell:
@@ -185,7 +250,7 @@ rule match_passengers_to_sailors:
     # against the identified main contig from Sailors
     input:
         seqs="holozoa-{type}_contigs-Undetermined_S0_L001.fasta",
-        contig="main_contig.fasta",
+        contig="main_contig-Sailors_S2_L002.fasta",
     output:
         "blast-main_contig-{type}-Undetermined_S0_L001.txt",
     shell:

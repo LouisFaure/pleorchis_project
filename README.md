@@ -13,12 +13,13 @@ It is recommended to set the environment using `conda` or `mamba`.
 ```bash
 mamba create -n trematoda -c bioconda -c conda-forge seqkit=2.3.1 \
              trimmomatic=0.36 spades=3.11.1 bwa=0.7.17 blast=2.12.0 \
-             barrnap=0.9 python=3.9 --yes
+             barrnap=0.9 python=3.9 bamtocov=2.7.0 seqtk=1.4 \
+             make=4.3 gxx=12.2.0 --yes
 
 mamba activate trematoda
 pip install snakemake ffq gget
 git clone https://github.com/LouisFaure/pleorchis_project
-cd pleorchis_project
+cd pleorchis_project && gcc -g -O2 tools/fqcount.c -o tools/fqcount -lz
 ```
 
 ## Download data
@@ -39,7 +40,7 @@ In the study, "Sailors" and "Passengers" sampled were loaded into Lane 2 and 1 r
 
 This is the main part of the analysis, and also the most time consuming and compute intensive, the following steps are applied:
 1. Trim raw reads with `trimmomatic`.
-2. Do a first  pass of `spades`, for error correction of the trimmed reads.
+2. Do a first pass of `spades`, for error correction of the trimmed reads.
 3. Do a second pass of `spades`, this time for assembly of contigs.
 4. Filter contigs by removing short ones.
 
@@ -55,7 +56,7 @@ The outputs are fasta files containing all contigs that are at least 500bp long.
 All the contigs of the high quality "Sailors" sample are BLASTed against SSU and LSU sequences of SILVA database, restricted to Holozoa clade, only the ones with hit are kept.
 
 ```bash
-snakemake -j 40 main_contig.fasta 
+snakemake -j 40 main_contig_Sailors_S2_L002.fasta 
 ```
 The output is a single contig in fasta format, as we have found out that only one (the longest) was having multiple hits with holozoan LSU/SSU.
 
@@ -84,7 +85,7 @@ snakemake -j 1 blast-main_contig-LSU-Undetermined_S0_L001.txt
 Here, we re-map raw corrected reads against newly found main contig. 
 
 ```bash
-snakemake -j 40 main_contig_mapping_Sailors.bam
+snakemake -j 40 main_contig-mapping-Sailors_S2_L002.bam
 ```
 
 The output bam and bai files can be visualised in [IGV browser](http://igv.org/app/).
@@ -101,4 +102,28 @@ Here we use sequences included in fasta files `pleorchis_rDNA.fasta` and `goliat
 
 ```bash
 snakemake -j 1 main_contig_blast_goliath.txt main_contig_blast_pleorchis.txt
+```
+
+### Trematoda explorations
+
+
+#### Detect all contigs matching trematoda
+
+```bash
+snakemake -j 40 contigs_trematoda-Sailors_S2_L002.fasta \
+                contigs_trematoda-Undetermined_S0_L001.fasta
+```
+
+#### Obtain read coverage over all matched contigs
+
+```bash
+snakemake -j 40 contigs_trematoda-coverage-Sailors_S2_L002.tsv \
+                contigs_trematoda-coverage-Undetermined_S0_L001.tsv
+```
+
+#### Get read stats
+
+```bash
+snakemake -j 40 contigs_trematoda-stats-Sailors_S2_L002.txt \
+                contigs_trematoda-stats-Undetermined_S0_L001.txt
 ```
