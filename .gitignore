@@ -11,6 +11,5 @@ assembly*
 spades*
 bwa/
 db/
-tools/
 trimmed/
 .snakemake/
