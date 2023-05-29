@@ -75,9 +75,9 @@ rule blast_contigs:
     threads: 20
     shell:
         """
-        blastn -query {input.contigs} -db db/silva_{wildcards.type} -num_threads 20 -outfmt 6 -max_target_seqs 5 -out blast_temp.txt 
-        cat blast_temp.txt | grep "Holozoa" | grep -v "metagenome"> {output}
-        rm blast_temp.txt
+        blastn -query {input.contigs} -db db/silva_{wildcards.type} -num_threads 20 -outfmt 6 -max_target_seqs 5 -out blast_temp-{wildcards.sample}-{wildcards.type}.txt 
+        cat blast_temp-{wildcards.sample}-{wildcards.type}.txt | grep "Holozoa" | grep -v "metagenome"> {output}
+        rm blast_temp-{wildcards.sample}-{wildcards.type}.txt
         """
 
 rule get_hit_contigs:
@@ -277,13 +277,15 @@ rule match_passengers_to_sailors:
     # Confirm identity of Passengers by blasting holozoa SSU or LSU sequences identified in Passengers samples
     # against the identified main contig from Sailors
     input:
-        seqs="holozoa-{type}_contigs-Undetermined_S0_L001.fasta",
-        contig="main_contig-Sailors_S2_L002.fasta",
+        seqs_SSU="holozoa-SSU_contigs-Undetermined_S0_L001.fasta",
+        seqs_LSU="holozoa-LSU_contigs-Undetermined_S0_L001.fasta",
+        contig="main_contig-Sailors_S2_L002-rRNA.fasta",
     output:
-        "main_contig-blast-{type}-Undetermined_S0_L001.txt",
+        "match_passengers_to_sailors.txt",
     shell:
         """
+        cat {input.seqs_SSU} {input.seqs_LSU} | seqkit rmdup -s > all.fasta
         makeblastdb -in {input.contig} -dbtype nucl -out db/main_contig
-        blastn -query {input.seqs} -db db/main_contig -num_threads 1 -outfmt 6 -max_target_seqs 2 > {output}
+        blastn -query all.fasta -db db/main_contig -num_threads 1 -outfmt 6 -max_target_seqs 3 > {output}
         """
 

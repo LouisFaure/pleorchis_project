@@ -45,8 +45,8 @@ This is the main part of the analysis, and also the most time consuming and comp
 4. Filter contigs by removing short ones.
 
 ```bash
-snakemake -j 80 assembly_Sailors_S2_L002/contigs_500.fasta \
-                assembly_Undetermined_S0_L001/contigs_500.fasta
+snakemake -j 80 contigs_500-Sailors_S2_L002.fasta \
+                contigs_500-Undetermined_S0_L001.fasta
 ```
 
 The outputs are fasta files containing all contigs that are at least 500bp long.
@@ -56,7 +56,7 @@ The outputs are fasta files containing all contigs that are at least 500bp long.
 All the contigs of the high quality "Sailors" sample are BLASTed against SSU and LSU sequences of SILVA database, restricted to Holozoa clade, only the ones with hit are kept.
 
 ```bash
-snakemake -j 40 main_contig_Sailors_S2_L002.fasta 
+snakemake -j 40 main_contig-Sailors_S2_L002.fasta 
 ```
 The output is a single contig in fasta format, as we have found out that only one (the longest) was having multiple hits with holozoan LSU/SSU.
 
@@ -65,7 +65,7 @@ The output is a single contig in fasta format, as we have found out that only on
 From that main contig, we predict ribosomal DNA seqs using HMMER 3.1 (using barrnap wrapper).
 
 ```bash
-snakemake -j 1 main_contig_rDNA.fasta
+snakemake -j 1 main_contig-Sailors_S2_L002-rRNA.fasta
 ```
 The output sequences are the ones that have been submitted to GenBank.
 
@@ -74,8 +74,8 @@ The output sequences are the ones that have been submitted to GenBank.
 To confirm the identity of Passengers, we BLASTed holozoan SSU or LSU-containing contigs from Passengers samples against the identified main contig from Sailors
 
 ```bash
-snakemake -j 1 blast-main_contig-SSU-Undetermined_S0_L001.txt
-snakemake -j 1 blast-main_contig-LSU-Undetermined_S0_L001.txt
+snakemake -j 1 match_passengers_to_sailors.txt
+cat match_passengers_to_sailors.txt
 ```
 
 ### Various explorations
@@ -85,7 +85,7 @@ snakemake -j 1 blast-main_contig-LSU-Undetermined_S0_L001.txt
 Here, we re-map raw corrected reads against newly found main contig. 
 
 ```bash
-snakemake -j 40 main_contig-mapping-Sailors_S2_L002.bam
+snakemake -j 40 main_contig-Sailors_S2_L002-mapping.bam
 ```
 
 The output bam and bai files can be visualised in [IGV browser](http://igv.org/app/).
@@ -93,7 +93,7 @@ The output bam and bai files can be visualised in [IGV browser](http://igv.org/a
 #### Blast the main contig against Nucleotide database
 
 ```bash
-snakemake -j 1 main_contig_blast_nt.csv
+snakemake -j 1 main_contig-Sailors_S2_L002-blast_nt.csv
 ```
 
 #### Similarity with Polyorchis and Brachycladium goliath
