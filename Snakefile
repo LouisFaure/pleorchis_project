@@ -141,8 +141,8 @@ rule check_alignment:
     shell:
         """
         mkdir -p bwa
-        bwa index -p bwa/{wildcards.seq} {input.contig}
-        bwa mem -t 40 bwa/{wildcards.seq} {input.r1} {input.r2} > {wildcards.seq}-{wildcards.sample}-alignment.sam
+        bwa index -p bwa/{wildcards.seq}-{wildcards.sample} {input.contig}
+        bwa mem -t 40 bwa/{wildcards.seq}-{wildcards.sample} {input.r1} {input.r2} > {wildcards.seq}-{wildcards.sample}-alignment.sam
         samtools view -@ 10 -F 4 {wildcards.seq}-{wildcards.sample}-alignment.sam -o {wildcards.seq}-{wildcards.sample}-mapped.bam
         samtools sort {wildcards.seq}-{wildcards.sample}-mapped.bam > {output.bam}
         rm {wildcards.seq}-{wildcards.sample}-mapped.bam {wildcards.seq}-{wildcards.sample}-alignment.sam

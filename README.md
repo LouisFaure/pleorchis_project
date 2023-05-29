@@ -104,26 +104,9 @@ Here we use sequences included in fasta files `pleorchis_rDNA.fasta` and `goliat
 snakemake -j 1 main_contig_blast_goliath.txt main_contig_blast_pleorchis.txt
 ```
 
-### Trematoda explorations
-
-
-#### Detect all contigs matching trematoda
+#### Generate read stats
 
 ```bash
-snakemake -j 40 contigs_trematoda-Sailors_S2_L002.fasta \
-                contigs_trematoda-Undetermined_S0_L001.fasta
-```
-
-#### Obtain read coverage over all matched contigs
-
-```bash
-snakemake -j 40 contigs_trematoda-coverage-Sailors_S2_L002.tsv \
-                contigs_trematoda-coverage-Undetermined_S0_L001.tsv
-```
-
-#### Get read stats
-
-```bash
-snakemake -j 40 contigs_trematoda-stats-Sailors_S2_L002.txt \
-                contigs_trematoda-stats-Undetermined_S0_L001.txt
+snakemake -j 40 contigs_500-Sailors_S2_L002-fcounts_classified.csv \
+                contigs_500-Undetermined_S0_L001-fcounts_classified.csv
 ```
