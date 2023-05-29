@@ -1,0 +1,16 @@
+*.sam
+*.txt
+*.tsv
+*.csv
+*.fasta
+*.fai
+*.bam
+*.bai
+*.bed
+assembly*
+spades*
+bwa/
+db/
+tools/
+trimmed/
+.snakemake/

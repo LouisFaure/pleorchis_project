@@ -98,28 +98,55 @@ rule get_hit_contigs:
         """
 
 rule extract_main_contig:
-    # From the Sailors sample, extract the main contig that match to both LSU and SSU seqs from trematoda
+    # Extract the main contig that match to both LSU and SSU seqs from trematoda
     input:
-        blast="blast_silva_holozoa-Sailors_S2_L002-SSU.txt",
-        contigs="contigs_500-Sailors_S2_L002.fasta"
+        blast_ssu="blast_silva_holozoa-{sample}-SSU.txt",
+        blast_lsu="blast_silva_holozoa-{sample}-LSU.txt",
+        contigs="contigs_500-{sample}.fasta"
     output:
-        fasta="main_contig-Sailors_S2_L002.fasta",
-        fai="main_contig-Sailors_S2_L002.fasta.fai",
+        fasta="main_contig-{sample}.fasta",
+        fai="main_contig-{sample}.fasta.fai",
     shell:
         """
-        seqname=$(head -n 1 {input.blast} | awk '{{print $1}}')
+        cat blast_silva_holozoa-{wildcards.sample}-SSU.txt | cut -f1 | uniq | sort > {wildcards.sample}-SSU.txt
+        cat blast_silva_holozoa-{wildcards.sample}-LSU.txt | cut -f1 | uniq | sort > {wildcards.sample}-LSU.txt
+        seqname=$(comm -12 {wildcards.sample}-LSU.txt {wildcards.sample}-SSU.txt)
         bash get_seq.sh $seqname {input.contigs} > {output.fasta} 
         samtools faidx {output.fasta}
+        rm {wildcards.sample}-SSU.txt {wildcards.sample}-LSU.txt
         """
 
 rule setup_nt_blastdb:
     # WARNING: this step will take a lot of time, as it will download the whole eukaryote blast database
     output:
-        db="db/nt_euk.nto",
+        db="db/nt.nto",
     shell:
         """
+        cd db
         wget https://raw.githubusercontent.com/jrherr/bioinformatics_scripts/master/perl_scripts/update_blastdb.pl
-        perl update_blastdb.pl --decompress db/nt_euk
+        perl update_blastdb.pl --decompress nt
+        """
+
+
+rule check_alignment:
+    # Re-map raw corrected reads against newly found main contig. Generate files needed to inspect aligment in
+    # IGV browser http://igv.org/app/ (Genome: output from extract_main_contig, Tracks: present ouputs)
+    input:
+        contig="{seq}-{sample}.fasta",
+        r1="spades_{sample}/corrected/{sample}_R1_paired.fastq.00.0_0.cor.fastq.gz",
+        r2="spades_{sample}/corrected/{sample}_R2_paired.fastq.00.0_0.cor.fastq.gz",
+    output:
+        bam="{seq}-{sample}-mapping.bam",
+        bai="{seq}-{sample}-mapping.bam.bai",
+    shell:
+        """
+        mkdir -p bwa
+        bwa index -p bwa/{wildcards.seq} {input.contig}
+        bwa mem -t 40 bwa/{wildcards.seq} {input.r1} {input.r2} > {wildcards.seq}-{wildcards.sample}-alignment.sam
+        samtools view -@ 10 -F 4 {wildcards.seq}-{wildcards.sample}-alignment.sam -o {wildcards.seq}-{wildcards.sample}-mapped.bam
+        samtools sort {wildcards.seq}-{wildcards.sample}-mapped.bam > {output.bam}
+        rm {wildcards.seq}-{wildcards.sample}-mapped.bam {wildcards.seq}-{wildcards.sample}-alignment.sam
+        samtools index {output.bam}
         """
 
 rule setup_taxonomy:
@@ -134,115 +161,116 @@ rule setup_taxonomy:
         mkdir -p taxo && tar xvf taxdump.tar.gz -C taxo
         """
 
-rule get_taxonomy:
+rule feature_counts:
     input:
-        contig="contigs_500-{sample}.fasta",
+        bam="{seq}-{sample}-mapping.bam",
+        contig="{seq}-{sample}.fasta",
+    output:
+        fcounts="{seq}-{sample}-fcounts.tsv"
+    shell:
+        """
+        samtools view -@ 10 -F 2432 {input.bam} -o {wildcards.seq}-{wildcards.sample}-unique.bam
+        samtools index {wildcards.seq}-{wildcards.sample}-unique.bam
+        grep "^>" {input.contig} | awk 'sub(/^>/, "")' > {wildcards.seq}-{wildcards.sample}.txt
+        cat /dev/null >| {output.fcounts}
+        while read s; do
+            count=$(samtools view {wildcards.seq}-{wildcards.sample}-unique.bam "$s" -c)
+            echo -e "$s\t$count" >> {output.fcounts}
+        done <{wildcards.seq}-{wildcards.sample}.txt
+        rm {wildcards.seq}-{wildcards.sample}.txt {wildcards.seq}-{wildcards.sample}-unique.bam*
+        """
+
+rule summarize_stats:
+    input:
+        contig="{seq}-{sample}.fasta",
+        bam="{seq}-{sample}-mapping.bam",
+        fcounts="{seq}-{sample}-fcounts.tsv",
         names="taxo/names.dmp",
         nodes="taxo/nodes.dmp",
         taxtrace="tax_trace.pl",
-        db="db/nt_euk.nto",
+        db="db/nt.nto",
     output:
-        out="contigs_trematoda-{sample}.fasta",
+        fcounts_class="{seq}-{sample}-fcounts_classified.csv",
+        summary="{seq}-{sample}-summary.csv",
     shell:
         """
-        blastn -query {input.contig} -db db/nt_euk -num_threads 40 -outfmt '6 qseqid sseqid evalue pident stitle staxids' -max_target_seqs 1 -max_hsps 1 -out blast_temp.txt
-        cut -f1,6 blast_temp.txt > taxo_temp.txt
-        perl tax_trace.pl taxo/nodes.dmp taxo/names.dmp taxo_temp.txt taxids_export.txt
-        grep 'Trematoda' taxids_export.txt | cut -f1 > trematoda_contigs.txt
-        seqtk subseq {input.contig} trematoda_contigs.txt > {output.out}
-        rm trematoda_contigs.txt taxo_temp.txt taxids_export.txt blast_temp.txt
-        """
+        ## Get taxonomy
+        blastn -num_threads 40 -db db/nt -query {input.contig} -out {wildcards.seq}-{wildcards.sample}-blast.txt -outfmt '6 qseqid sseqid evalue pident stitle staxids' -max_target_seqs 1 -max_hsps 1
+        cut -f1,6 {wildcards.seq}-{wildcards.sample}-blast.txt  > {wildcards.seq}-{wildcards.sample}-taxo_temp.txt
+        perl tax_trace.pl taxo/nodes.dmp taxo/names.dmp {wildcards.seq}-{wildcards.sample}-taxo_temp.txt {wildcards.seq}-{wildcards.sample}-taxo_id.txt
+        cat {wildcards.seq}-{wildcards.sample}-taxo_id.txt | cut -f1 > {wildcards.seq}-{wildcards.sample}-matched.txt
+        grep 'artificial' {wildcards.seq}-{wildcards.sample}-taxo_id.txt | cut -f1 > {wildcards.seq}-{wildcards.sample}-artificial.txt
+        grep 'Viruses' {wildcards.seq}-{wildcards.sample}-taxo_id.txt | cut -f1 > {wildcards.seq}-{wildcards.sample}-viruses.txt
+        grep 'Bacteria' {wildcards.seq}-{wildcards.sample}-taxo_id.txt | cut -f1 > {wildcards.seq}-{wildcards.sample}-bacteria.txt
+        grep 'Trematoda' {wildcards.seq}-{wildcards.sample}-taxo_id.txt | cut -f1 > {wildcards.seq}-{wildcards.sample}-trematoda.txt
+        grep -v 'Trematoda' {wildcards.seq}-{wildcards.sample}-taxo_id.txt| grep Eukaryota | cut -f1 > {wildcards.seq}-{wildcards.sample}-other_euk.txt
+        
+        ## Get mean coverage
+        average-coverage.py {input.bam} > {wildcards.seq}-{wildcards.sample}-coverage.txt
 
-
-rule check_alignment:
-    # Re-map raw corrected reads against newly found main contig. Generate files needed to inspect aligment in
-    # IGV browser http://igv.org/app/ (Genome: output from extract_main_contig, Tracks: present ouputs)
-    input:
-        contig="{seq}-{sample}.fasta",
-        r1="spades_{sample}/corrected/{sample}_R1_paired.fastq.00.0_0.cor.fastq.gz",
-        r2="spades_{sample}/corrected/{sample}_R2_paired.fastq.00.0_0.cor.fastq.gz",
-    output:
-        bam="{seq}-mapping-{sample}.bam",
-        bai="{seq}-mapping-{sample}.bam.bai",
-    shell:
-        """
-        mkdir -p bwa
-        bwa index -p bwa/{wildcards.seq} {input.contig}
-        bwa mem -t 40 bwa/{wildcards.seq} {input.r1} {input.r2} > alignment.sam
-        samtools view -@ 10 -F 4 alignment.sam -o mapped.bam
-        samtools sort mapped.bam > {output.bam}
-        rm mapped.bam alignment.sam
-        samtools index {output.bam}
-        """
-
-rule get_read_stats:
-    input:
-        fastq="spades_{sample}/corrected/{sample}_R1_paired.fastq.00.0_0.cor.fastq.gz",
-        bam="{seq}-mapping-{sample}.bam",
-    output:
-        stat="{seq}-stats-{sample}.txt"
-    shell:
-        """
-        echo 'fastq reads: ' > {output.stat}
-        tools/fqcount {input.fastq} >> {output.stat}
-        echo '\nbam unique reads: ' >> {output.stat}
-        samtools view -c -F 2432 {input.bam} >> {output.stat}
+        ## Summarize
+        python generate_stats.py {wildcards.seq}-{wildcards.sample}
+        rm {wildcards.seq}-{wildcards.sample}-*.txt
         """
 
 rule get_coverage:
     # Compute mean read coverage for each sequences (each contigs)
     input:
-        bam="{seq}-mapping-{sample}.bam"
+        bam="{seq}-{sample}-mapping.bam",
+        fcounts_class="{seq}-{sample}-fcounts_classified.csv",
     output:
-        tsv="{seq}-coverage-{sample}.tsv"
+        tsv="{seq}-{sample}-coverage.tsv"
     shell:
-        "average-coverage.py {input.bam} > {output.tsv}"
+        """
+        average-coverage.py {input.bam} > {output.tsv}
+
+        """
 
 rule blast_nt:
     # BLAST the contig against whole NCBI nt databse (using gget tool)
     input:
-        "main_contig.fasta",
+        "main_contig-{sample}.fasta",
     output:
-        "main_contig_blast_nt.csv",
+        "main_contig-{sample}-blast_nt.csv",
     shell: "bash blast_nt.sh {input} {output}"
 
-rule trematoda_rDNA_blast:
+rule trematoda_rRNA_blast:
     # Explore ribosomal DNA similarites with Polyorchis and Brachycladium goliath
     input:
-        seqs="{specie}_rDNA.fasta",
-        contig="main_contig.fasta",
+        seqs="{specie}_rRNA.fasta",
+        contig="main_contig-{sample}.fasta",
     output:
-        "main_contig_blast_{specie}.txt"
+        "main_contig-{sample}-blast-{specie}.txt"
     shell:
         """
-        makeblastdb -in {input.seqs} -dbtype nucl -out db/{wildcards.specie}_rDNA
-        blastn -query {input.contig} -db db/{wildcards.specie}_rDNA -num_threads 1 -outfmt 6 -max_target_seqs 2 > {output}
+        makeblastdb -in {input.seqs} -dbtype nucl -out db/{wildcards.specie}_rRNA
+        blastn -query {input.contig} -db db/{wildcards.specie}_rRNA -num_threads 1 -outfmt 6 -max_target_seqs 2 > {output}
         """
 
-rule predict_rDNA:
+rule predict_rRNA:
     # Predict ribosomal DNA seqs using HMMER 3.1 (using barrnap wrapper)
     input:
-        "main_contig-Sailors_S2_L002.fasta",
+        "main_contig-{sample}.fasta",
     output:
-        "main_contig_rDNA.fasta",
+        "main_contig-{sample}-rRNA.fasta",
     shell:
         """
-        barrnap --quiet --kingdom euk {input} > main_contig.gff3
+        barrnap --quiet --kingdom euk {input} > main_contig-{wildcards.sample}.gff3
         # if 5.8S is present, barrnap wrongly assign the start of 28S at the same location
         # see https://github.com/tseemann/barrnap/issues/47 for more info
         # so we need to truncate the sequence to ingore 5.8S to detect the start of 28S
-        end=$(cat main_contig.gff3 | grep "Name=5_8S" | awk '{{print $5}}')
+        end=$(cat main_contig-{wildcards.sample}.gff3 | grep "Name=5_8S" | awk '{{print $5}}')
         name_contig=$(cat {input} | head -n 1 | awk -F '>' '{{print $2}}')
 
-        samtools faidx {input} "$name_contig":-"$end" > main_contig_part1.fasta
-        samtools faidx {input} "$name_contig":"$end"- > main_contig_part2.fasta
+        samtools faidx {input} "$name_contig":-"$end" > main_contig_part1-{wildcards.sample}.fasta
+        samtools faidx {input} "$name_contig":"$end"- > main_contig_part2-{wildcards.sample}.fasta
 
-        barrnap --outseq main_contig_rDNA_part1.fasta --quiet --kingdom euk main_contig_part1.fasta > main_contig_part1.gff3
-        barrnap --outseq main_contig_rDNA_part2.fasta --quiet --kingdom euk main_contig_part2.fasta > main_contig_part2.gff3
+        barrnap --outseq main_contig_rRNA_part1-{wildcards.sample}.fasta --quiet --kingdom euk main_contig_part1-{wildcards.sample}.fasta > main_contig_part1-{wildcards.sample}.gff3
+        barrnap --outseq main_contig_rRNA_part2-{wildcards.sample}.fasta --quiet --kingdom euk main_contig_part2-{wildcards.sample}.fasta > main_contig_part2-{wildcards.sample}.gff3
 
-        cat main_contig_rDNA_part1.fasta main_contig_rDNA_part2.fasta > {output}
+        cat main_contig_rRNA_part1-{wildcards.sample}.fasta main_contig_rRNA_part2-{wildcards.sample}.fasta > {output}
 
-        rm main_contig_part*.fasta* main_contig*gff3 main_contig_rDNA_*
+        rm main_contig_part*-{wildcards.sample}* main_contig-{wildcards.sample}*gff3 main_contig_rRNA_*{wildcards.sample}*
         """
 
 rule match_passengers_to_sailors:
@@ -252,7 +280,7 @@ rule match_passengers_to_sailors:
         seqs="holozoa-{type}_contigs-Undetermined_S0_L001.fasta",
         contig="main_contig-Sailors_S2_L002.fasta",
     output:
-        "blast-main_contig-{type}-Undetermined_S0_L001.txt",
+        "main_contig-blast-{type}-Undetermined_S0_L001.txt",
     shell:
         """
         makeblastdb -in {input.contig} -dbtype nucl -out db/main_contig
