@@ -56,7 +56,8 @@ The outputs are fasta files containing all contigs that are at least 500bp long.
 All the contigs of the high quality "Sailors" sample are BLASTed against SSU and LSU sequences of SILVA database, restricted to Holozoa clade, only the ones with hit are kept.
 
 ```bash
-snakemake -j 40 main_contig-Sailors_S2_L002.fasta 
+snakemake -j 40 main_contig-Sailors_S2_L002.fasta \ 
+                main_contig-Undetermined_S0_L001.fasta 
 ```
 The output is a single contig in fasta format, as we have found out that only one (the longest) was having multiple hits with holozoan LSU/SSU.
 
@@ -65,18 +66,11 @@ The output is a single contig in fasta format, as we have found out that only on
 From that main contig, we predict ribosomal DNA seqs using HMMER 3.1 (using barrnap wrapper).
 
 ```bash
-snakemake -j 1 main_contig-Sailors_S2_L002-rRNA.fasta
+snakemake -j 1 main_contig-Sailors_S2_L002-rRNA.fasta \
+               main_contig-Undetermined_S0_L001-rRNA.fasta 
 ```
 The output sequences are the ones that have been submitted to GenBank.
 
-#### Compare SSU/LSU sequences from "passenger" sample to main contig rDNA
-
-To confirm the identity of Passengers, we BLASTed holozoan SSU or LSU-containing contigs from Passengers samples against the identified main contig from Sailors
-
-```bash
-snakemake -j 1 match_passengers_to_sailors.txt
-cat match_passengers_to_sailors.txt
-```
 
 ### Various explorations
 
@@ -101,7 +95,7 @@ snakemake -j 1 main_contig-Sailors_S2_L002-blast_nt.csv
 Here we use sequences included in fasta files `pleorchis_rDNA.fasta` and `goliath_rDNA.fasta`
 
 ```bash
-snakemake -j 1 main_contig_blast_goliath.txt main_contig_blast_pleorchis.txt
+snakemake -j 1 main_contig-Sailors_S2_L002-blast-goliath.txt main_contig-Sailors_S2_L002-blast-pleorchis.txt
 ```
 
 #### Generate read stats

@@ -30,7 +30,20 @@ rule spades_error_correct:
         "spades_{sample}/corrected/{sample}_R2_paired.fastq.00.0_0.cor.fastq.gz",
     threads: 40
     shell:
-        "spades.py -1 {input.pr1} -2 {input.pr2} -o spades_{wildcards.sample} -t {threads} -m 500 --only-error-correction"
+        """
+        spades.py -1 {input.pr1} -2 {input.pr2} -o spades_{wildcards.sample} -t {threads} -m 500 --only-error-correction
+        ## remove illumina index contamination from passenger sample
+        if [ {wildcards.sample} = 'Undetermined_S0_L001' ] 
+        then
+            cd spades_Undetermined_S0_L001/corrected/
+            trimmomatic PE Undetermined_S0_L001_R1_paired.fastq.00.0_0.cor.fastq.gz Undetermined_S0_L001_R2_paired.fastq.00.0_0.cor.fastq.gz u_R1_f.fastq.gz u_R1_fu.fastq.gz u_R2_f.fastq.gz u_R2_fu.fastq.gz ILLUMINACLIP:../../illumina.fa:2:30:10 -threads 8
+            mv Undetermined_S0_L001_R1_paired.fastq.00.0_0.cor.fastq.gz u_R1.fastq.gz # temp file
+            mv Undetermined_S0_L001_R2_paired.fastq.00.0_0.cor.fastq.gz u_R2.fastq.gz
+            mv u_R1_f.fastq.gz Undetermined_S0_L001_R1_paired.fastq.00.0_0.cor.fastq.gz
+            mv u_R2_f.fastq.gz Undetermined_S0_L001_R2_paired.fastq.00.0_0.cor.fastq.gz
+            rm u_R1_fu.fastq.gz u_R2_fu.fastq.gz
+        fi
+        """
 
 
 rule spades_assembly:
@@ -116,15 +129,37 @@ rule extract_main_contig:
         rm {wildcards.sample}-SSU.txt {wildcards.sample}-LSU.txt
         """
 
-rule setup_nt_blastdb:
-    # WARNING: this step will take a lot of time, as it will download the whole eukaryote blast database
+
+rule predict_rRNA:
+    # Predict ribosomal DNA seqs using HMMER 3.1 (using barrnap wrapper)
+    input:
+        "{seq}-{sample}.fasta",
     output:
-        db="db/nt.nto",
+        "{seq}-{sample}-rRNA.fasta",
     shell:
         """
-        cd db
-        wget https://raw.githubusercontent.com/jrherr/bioinformatics_scripts/master/perl_scripts/update_blastdb.pl
-        perl update_blastdb.pl --decompress nt
+        # When 5.8S is present, barrnap wrongly assign the start of 28S at the same location
+        # see https://github.com/tseemann/barrnap/issues/47 for more info
+        # so here is a hack where we first detect 5_8S, then mask it to detect the start of 28S
+        barrnap --quiet --kingdom euk {input} > {wildcards.seq}-{wildcards.sample}-temp.gff3
+        seq_=$(cat {wildcards.seq}-{wildcards.sample}-temp.gff3 | grep "Name=5_8S")
+        start=$(echo "$seq_" | awk '{{print $4}}')
+        end=$(echo "$seq_" | grep "Name=5_8S" | awk '{{print $5}}')
+
+        seq=$(grep -v ">" {input} | tr -d '\\n')
+        subseq=${{seq:($start - 1):($end - $start + 1)}}
+        subseq_length=$(($end - $start + 1))
+        # Generate the 'N' replacement string
+        replacement=$(printf '%*s' "$subseq_length" | tr ' ' 'N')
+
+        grep ">" {input} > {wildcards.seq}-{wildcards.sample}-masked.fasta
+
+        echo $seq | sed "s/$subseq/$replacement/g" >> {wildcards.seq}-{wildcards.sample}-masked.fasta
+
+        barrnap --quiet --kingdom euk {wildcards.seq}-{wildcards.sample}-masked.fasta > {wildcards.seq}-{wildcards.sample}.gff3
+        grep "5_8S" {wildcards.seq}-{wildcards.sample}-temp.gff3 >> {wildcards.seq}-{wildcards.sample}.gff3
+        rm {wildcards.seq}-{wildcards.sample}-masked.fasta {wildcards.seq}-{wildcards.sample}-temp.gff3
+        bedtools getfasta -fi {input} -bed {wildcards.seq}-{wildcards.sample}.gff3 -fo {output}
         """
 
 
@@ -226,6 +261,17 @@ rule get_coverage:
 
         """
 
+rule setup_nt_blastdb:
+    # WARNING: this step will take a lot of time, as it will download the whole eukaryote blast database
+    output:
+        db="db/nt.nto",
+    shell:
+        """
+        cd db
+        wget https://raw.githubusercontent.com/jrherr/bioinformatics_scripts/master/perl_scripts/update_blastdb.pl
+        perl update_blastdb.pl --decompress nt
+        """
+
 rule blast_nt:
     # BLAST the contig against whole NCBI nt databse (using gget tool)
     input:
@@ -246,46 +292,3 @@ rule trematoda_rRNA_blast:
         makeblastdb -in {input.seqs} -dbtype nucl -out db/{wildcards.specie}_rRNA
         blastn -query {input.contig} -db db/{wildcards.specie}_rRNA -num_threads 1 -outfmt 6 -max_target_seqs 2 > {output}
         """
-
-rule predict_rRNA:
-    # Predict ribosomal DNA seqs using HMMER 3.1 (using barrnap wrapper)
-    input:
-        "main_contig-{sample}.fasta",
-    output:
-        "main_contig-{sample}-rRNA.fasta",
-    shell:
-        """
-        barrnap --quiet --kingdom euk {input} > main_contig-{wildcards.sample}.gff3
-        # if 5.8S is present, barrnap wrongly assign the start of 28S at the same location
-        # see https://github.com/tseemann/barrnap/issues/47 for more info
-        # so we need to truncate the sequence to ingore 5.8S to detect the start of 28S
-        end=$(cat main_contig-{wildcards.sample}.gff3 | grep "Name=5_8S" | awk '{{print $5}}')
-        name_contig=$(cat {input} | head -n 1 | awk -F '>' '{{print $2}}')
-
-        samtools faidx {input} "$name_contig":-"$end" > main_contig_part1-{wildcards.sample}.fasta
-        samtools faidx {input} "$name_contig":"$end"- > main_contig_part2-{wildcards.sample}.fasta
-
-        barrnap --outseq main_contig_rRNA_part1-{wildcards.sample}.fasta --quiet --kingdom euk main_contig_part1-{wildcards.sample}.fasta > main_contig_part1-{wildcards.sample}.gff3
-        barrnap --outseq main_contig_rRNA_part2-{wildcards.sample}.fasta --quiet --kingdom euk main_contig_part2-{wildcards.sample}.fasta > main_contig_part2-{wildcards.sample}.gff3
-
-        cat main_contig_rRNA_part1-{wildcards.sample}.fasta main_contig_rRNA_part2-{wildcards.sample}.fasta > {output}
-
-        rm main_contig_part*-{wildcards.sample}* main_contig-{wildcards.sample}*gff3 main_contig_rRNA_*{wildcards.sample}*
-        """
-
-rule match_passengers_to_sailors:
-    # Confirm identity of Passengers by blasting holozoa SSU or LSU sequences identified in Passengers samples
-    # against the identified main contig from Sailors
-    input:
-        seqs_SSU="holozoa-SSU_contigs-Undetermined_S0_L001.fasta",
-        seqs_LSU="holozoa-LSU_contigs-Undetermined_S0_L001.fasta",
-        contig="main_contig-Sailors_S2_L002-rRNA.fasta",
-    output:
-        "match_passengers_to_sailors.txt",
-    shell:
-        """
-        cat {input.seqs_SSU} {input.seqs_LSU} | seqkit rmdup -s > all.fasta
-        makeblastdb -in {input.contig} -dbtype nucl -out db/main_contig
-        blastn -query all.fasta -db db/main_contig -num_threads 1 -outfmt 6 -max_target_seqs 3 > {output}
-        """
-
