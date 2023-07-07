@@ -117,8 +117,8 @@ rule extract_main_contig:
         blast_lsu="blast_silva_holozoa-{sample}-LSU.txt",
         contigs="contigs_500-{sample}.fasta"
     output:
-        fasta="main_contig-{sample}.fasta",
-        fai="main_contig-{sample}.fasta.fai",
+        fasta="main_contig-{sample}-seq.fasta",
+        fai="main_contig-{sample}-seq.fasta.fai",
     shell:
         """
         cat blast_silva_holozoa-{wildcards.sample}-SSU.txt | cut -f1 | uniq | sort > {wildcards.sample}-SSU.txt
@@ -133,7 +133,7 @@ rule extract_main_contig:
 rule predict_rRNA:
     # Predict ribosomal DNA seqs using HMMER 3.1 (using barrnap wrapper)
     input:
-        "{seq}-{sample}.fasta",
+        "{seq}-{sample}-seq.fasta",
     output:
         "{seq}-{sample}-rRNA.fasta",
     shell:
@@ -167,7 +167,7 @@ rule check_alignment:
     # Re-map raw corrected reads against newly found main contig. Generate files needed to inspect aligment in
     # IGV browser http://igv.org/app/ (Genome: output from extract_main_contig, Tracks: present ouputs)
     input:
-        contig="{seq}-{sample}.fasta",
+        contig="{seq}-{sample}-seq.fasta",
         r1="spades_{sample}/corrected/{sample}_R1_paired.fastq.00.0_0.cor.fastq.gz",
         r2="spades_{sample}/corrected/{sample}_R2_paired.fastq.00.0_0.cor.fastq.gz",
     output:
@@ -199,7 +199,7 @@ rule setup_taxonomy:
 rule feature_counts:
     input:
         bam="{seq}-{sample}-mapping.bam",
-        contig="{seq}-{sample}.fasta",
+        contig="{seq}-{sample}-seq.fasta",
     output:
         fcounts="{seq}-{sample}-fcounts.tsv"
     shell:
@@ -217,7 +217,7 @@ rule feature_counts:
 
 rule summarize_stats:
     input:
-        contig="{seq}-{sample}.fasta",
+        contig="{seq}-{sample}-seq.fasta",
         bam="{seq}-{sample}-mapping.bam",
         fcounts="{seq}-{sample}-fcounts.tsv",
         names="taxo/names.dmp",

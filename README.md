@@ -56,8 +56,8 @@ The outputs are fasta files containing all contigs that are at least 500bp long.
 All the contigs of the high quality "Sailors" sample are BLASTed against SSU and LSU sequences of SILVA database, restricted to Holozoa clade, only the ones with hit are kept.
 
 ```bash
-snakemake -j 40 main_contig-Sailors_S2_L002.fasta \ 
-                main_contig-Undetermined_S0_L001.fasta 
+snakemake -j 40 main_contig-Sailors_S2_L002-seq.fasta \ 
+                main_contig-Undetermined_S0_L001-seq.fasta 
 ```
 The output is a single contig in fasta format, as we have found out that only one (the longest) was having multiple hits with holozoan LSU/SSU.
 
