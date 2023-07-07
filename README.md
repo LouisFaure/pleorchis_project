@@ -19,15 +19,14 @@ mamba create -n trematoda -c bioconda -c conda-forge seqkit=2.3.1 \
 mamba activate trematoda
 pip install snakemake ffq gget
 git clone https://github.com/LouisFaure/pleorchis_project
-cd pleorchis_project && gcc -g -O2 tools/fqcount.c -o tools/fqcount -lz
+cd pleorchis_project
 ```
 
 ## Download data
 
 Raw data will be made available on SRA, to download the fastq files, run the following:
 
-```
-pip install ffq
+```bash
 ffq SRR23342065
 ```
 
@@ -36,11 +35,12 @@ ffq SRR23342065
 
 ### Extract contigs
 
-In the study, "Sailors" and "Passengers" sampled were loaded into Lane 2 and 1 respectively. We used high quality reads from samples "Sailors" from Lane 2 of the flowcell. While not enough reads could be determined for the "Passengers" sample, we leveraged the NovaSeq Xp Workflow, which allowed us to use the Undetermined reads from Lane 1 as our Passengers sample.
+In the study, "Sailors" and "Passengers" sampled were loaded into Lane 2 and 1 respectively. We used high quality reads from samples "Sailors" from Lane 2 of the flowcell. While not enough reads could be determined for the "Passengers" sample, we leveraged the NovaSeq Xp Workflow, which allowed us to use the *Undetermined reads* from Lane 1 as our Passengers sample.
 
 This is the main part of the analysis, and also the most time consuming and compute intensive, the following steps are applied:
 1. Trim raw reads with `trimmomatic`.
 2. Do a first pass of `spades`, for error correction of the trimmed reads.
+  - For Undetermined, add one step of `trimmomatic`, trimming reads using *illumina.fa* provided.
 3. Do a second pass of `spades`, this time for assembly of contigs.
 4. Filter contigs by removing short ones.
 
