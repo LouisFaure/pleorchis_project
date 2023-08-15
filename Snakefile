@@ -33,14 +33,14 @@ rule spades_error_correct:
         """
         spades.py -1 {input.pr1} -2 {input.pr2} -o spades_{wildcards.sample} -t {threads} -m 500 --only-error-correction
         ## remove illumina index contamination from passenger sample
-        if [ {wildcards.sample} = 'Undetermined_S0_L001' ] 
+        if [ {wildcards.sample} = 'Passengers_S0_L001' ] 
         then
-            cd spades_Undetermined_S0_L001/corrected/
-            trimmomatic PE Undetermined_S0_L001_R1_paired.fastq.00.0_0.cor.fastq.gz Undetermined_S0_L001_R2_paired.fastq.00.0_0.cor.fastq.gz u_R1_f.fastq.gz u_R1_fu.fastq.gz u_R2_f.fastq.gz u_R2_fu.fastq.gz ILLUMINACLIP:../../illumina.fa:2:30:10 -threads 8
-            mv Undetermined_S0_L001_R1_paired.fastq.00.0_0.cor.fastq.gz u_R1.fastq.gz # temp file
-            mv Undetermined_S0_L001_R2_paired.fastq.00.0_0.cor.fastq.gz u_R2.fastq.gz
-            mv u_R1_f.fastq.gz Undetermined_S0_L001_R1_paired.fastq.00.0_0.cor.fastq.gz
-            mv u_R2_f.fastq.gz Undetermined_S0_L001_R2_paired.fastq.00.0_0.cor.fastq.gz
+            cd spades_Passengers_S0_L001/corrected/
+            trimmomatic PE Passengers_S0_L001_R1_paired.fastq.00.0_0.cor.fastq.gz Passengers_S0_L001_R2_paired.fastq.00.0_0.cor.fastq.gz u_R1_f.fastq.gz u_R1_fu.fastq.gz u_R2_f.fastq.gz u_R2_fu.fastq.gz ILLUMINACLIP:../../illumina.fa:2:30:10 -threads 8
+            mv Passengers_S0_L001_R1_paired.fastq.00.0_0.cor.fastq.gz u_R1.fastq.gz # temp file
+            mv Passengers_S0_L001_R2_paired.fastq.00.0_0.cor.fastq.gz u_R2.fastq.gz
+            mv u_R1_f.fastq.gz Passengers_S0_L001_R1_paired.fastq.00.0_0.cor.fastq.gz
+            mv u_R2_f.fastq.gz Passengers_S0_L001_R2_paired.fastq.00.0_0.cor.fastq.gz
             rm u_R1_fu.fastq.gz u_R2_fu.fastq.gz
         fi
         """
@@ -297,10 +297,10 @@ rule trematoda_rRNA_blast:
 rule common_hit:
     # Extract overlapping Trematoda contigs between the two samples
     input:
-        sail="contigs_500-Sailors_S2_L001.fasta",
-        pass="contigs_500-Passengers_S0_L001.fasta",
+        sailors="contigs_500-Sailors_S2_L001.fasta",
+        passeng="contigs_500-Passengers_S0_L001.fasta",
     output:
-        "common_hit.csv"
+        "common_hit.csv",
     shell:
         """
         get_overlap.py
