@@ -48,8 +48,6 @@ cd ..
 
 ### Extract contigs
 
-In the study, "Sailors" and "Passengers" sampled were loaded into Lane 2 and 1 respectively. We used high quality reads from samples "Sailors" from Lane 2 of the flowcell. While not enough reads could be determined for the "Passengers" sample, we leveraged the NovaSeq Xp Workflow, which allowed us to use the *Undetermined reads* from Lane 1 as our Passengers sample.
-
 This is the main part of the analysis, and also the most time consuming and compute intensive, the following steps are applied:
 1. Trim raw reads with `trimmomatic`.
 2. Do a first pass of `spades`, for error correction of the trimmed reads.
