@@ -30,6 +30,19 @@ Raw data will be made available on SRA, to download the fastq files, run the fol
 ffq SRR23342065
 ```
 
+### Saving undertermined reads from lane 1 as passengers
+
+Data from passengers was of poor quality (not much reads associated to illumina indexes recovered), 
+hinting on a possible issue while prepary libraries.
+As the 2 libraries were separately loaded into each lane of the Illumina SP flow cell according to Xp workflow, we could 
+recover the data from Undetermined reads from lane 1 as data containing sequences from passengers sample.
+
+```bash
+cd data
+mv Undetermined_S0_L001_R1_001.fastq.gz Passengers_S0_L001_R1_001.fastq.gz
+mv Undetermined_S0_L001_R2_001.fastq.gz Passengers_S0_L001_R2_001.fastq.gz
+cd ..
+```
 
 ## Run pipeline
 
@@ -46,7 +59,7 @@ This is the main part of the analysis, and also the most time consuming and comp
 
 ```bash
 snakemake -j 80 contigs_500-Sailors_S2_L002.fasta \
-                contigs_500-Undetermined_S0_L001.fasta
+                contigs_500-Passengers_S0_L001.fasta
 ```
 
 The outputs are fasta files containing all contigs that are at least 500bp long.
@@ -57,7 +70,7 @@ All the contigs of the high quality "Sailors" sample are BLASTed against SSU and
 
 ```bash
 snakemake -j 40 main_contig-Sailors_S2_L002-seq.fasta \ 
-                main_contig-Undetermined_S0_L001-seq.fasta 
+                main_contig-Passengers_S0_L001-seq.fasta 
 ```
 The output is a single contig in fasta format, as we have found out that only one (the longest) was having multiple hits with holozoan LSU/SSU.
 
@@ -67,7 +80,7 @@ From that main contig, we predict ribosomal DNA seqs using HMMER 3.1 (using barr
 
 ```bash
 snakemake -j 1 main_contig-Sailors_S2_L002-rRNA.fasta \
-               main_contig-Undetermined_S0_L001-rRNA.fasta 
+               main_contig-Passengers_S0_L001-rRNA.fasta 
 ```
 The output sequences are the ones that have been submitted to GenBank.
 
@@ -102,5 +115,11 @@ snakemake -j 1 main_contig-Sailors_S2_L002-blast-goliath.txt main_contig-Sailors
 
 ```bash
 snakemake -j 40 contigs_500-Sailors_S2_L002-fcounts_classified.csv \
-                contigs_500-Undetermined_S0_L001-fcounts_classified.csv
+                contigs_500-Passengers_S0_L001-fcounts_classified.csv
+```
+
+#### Study contig overlap between the two samples
+
+```bash
+snakemake -j 1 common_hits.csv
 ```

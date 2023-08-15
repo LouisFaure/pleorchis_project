@@ -292,3 +292,16 @@ rule trematoda_rRNA_blast:
         makeblastdb -in {input.seqs} -dbtype nucl -out db/{wildcards.specie}_rRNA
         blastn -query {input.contig} -db db/{wildcards.specie}_rRNA -num_threads 1 -outfmt 6 -max_target_seqs 2 > {output}
         """
+        
+        
+rule common_hit:
+    # Extract overlapping Trematoda contigs between the two samples
+    input:
+        sail="contigs_500-Sailors_S2_L001.fasta",
+        pass="contigs_500-Passengers_S0_L001.fasta",
+    output:
+        "common_hit.csv"
+    shell:
+        """
+        get_overlap.py
+        """
