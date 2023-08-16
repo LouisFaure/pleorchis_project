@@ -112,7 +112,7 @@ snakemake -j 1 main_contig-Sailors_S2_L002-blast-goliath.txt main_contig-Sailors
 #### Generate read stats
 
 > **Warning**
-:warning: This part will take a very long time to run, as it will download the whole nucleotide database from ncbi!
+This part will take a very long time to run, as it will download the whole nucleotide database from ncbi!
 
 ```bash
 snakemake -j 40 contigs_500-Sailors_S2_L002-fcounts_classified.csv \
