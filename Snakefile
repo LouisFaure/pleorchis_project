@@ -62,7 +62,7 @@ rule filter_contigs:
     input:
         "assembly_{sample}/contigs.fasta"
     output:
-        "contigs_500-{sample}.fasta"
+        "contigs_500-{sample}-seq.fasta"
     shell:
         "seqkit seq -g -m 500 {input}  > {output}"
 
@@ -82,7 +82,7 @@ rule blast_contigs:
     # BLAST contigs against SSU and LSU sequences, keep only from Holozoa clade
     input:
         db="db/silva_{type}.nsq",
-        contigs="contigs_500-{sample}.fasta",
+        contigs="contigs_500-{sample}-seq.fasta",
     output:
         "blast_silva_holozoa-{sample}-{type}.txt",
     threads: 20
@@ -97,7 +97,7 @@ rule get_hit_contigs:
     # Extract contigs that succesfully matched to LSU/SSU for inspection
     input:
         blast="blast_silva_holozoa-{sample}-{subunit}.txt",
-        contigs="contigs_500-{sample}.fasta"
+        contigs="contigs_500-{sample}-seq.fasta"
     output:
         "holozoa-{subunit}_contigs-{sample}.fasta",
     shell:
@@ -115,7 +115,7 @@ rule extract_main_contig:
     input:
         blast_ssu="blast_silva_holozoa-{sample}-SSU.txt",
         blast_lsu="blast_silva_holozoa-{sample}-LSU.txt",
-        contigs="contigs_500-{sample}.fasta"
+        contigs="contigs_500-{sample}-seq.fasta"
     output:
         fasta="main_contig-{sample}-seq.fasta",
         fai="main_contig-{sample}-seq.fasta.fai",
@@ -294,14 +294,17 @@ rule trematoda_rRNA_blast:
         """
         
         
-rule common_hit:
+rule common_hits:
     # Extract overlapping Trematoda contigs between the two samples
     input:
-        sailors="contigs_500-Sailors_S2_L001.fasta",
-        passeng="contigs_500-Passengers_S0_L001.fasta",
+        sailors="contigs_500-Sailors_S2_L002-seq.fasta",
+        passeng="contigs_500-Passengers_S0_L001-seq.fasta",
+        s_stat="contigs_500-Passengers_S0_L001-fcounts_classified.csv",
+        p_stat="contigs_500-Sailors_S2_L002-fcounts_classified.csv",
     output:
-        "common_hit.csv",
+        "common_hits.csv",
     shell:
         """
-        get_overlap.py
+        makeblastdb -in contigs_500-Sailors_S2_L002-seq.fasta -dbtype nucl -out db/contigs_500-Sailors_S2_L002
+        python get_overlap.py
         """

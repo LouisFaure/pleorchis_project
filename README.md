@@ -56,8 +56,8 @@ This is the main part of the analysis, and also the most time consuming and comp
 4. Filter contigs by removing short ones.
 
 ```bash
-snakemake -j 80 contigs_500-Sailors_S2_L002.fasta \
-                contigs_500-Passengers_S0_L001.fasta
+snakemake -j 80 contigs_500-Sailors_S2_L002-seq.fasta \
+                contigs_500-Passengers_S0_L001-seq.fasta
 ```
 
 The outputs are fasta files containing all contigs that are at least 500bp long.
@@ -67,8 +67,8 @@ The outputs are fasta files containing all contigs that are at least 500bp long.
 All the contigs of the high quality "Sailors" sample are BLASTed against SSU and LSU sequences of SILVA database, restricted to Holozoa clade, only the ones with hit are kept.
 
 ```bash
-snakemake -j 40 main_contig-Sailors_S2_L002-seq.fasta \ 
-                main_contig-Passengers_S0_L001-seq.fasta 
+snakemake -j 40 main_contig-Sailors_S2_L002-seq.fasta \
+                main_contig-Passengers_S0_L001-seq.fasta
 ```
 The output is a single contig in fasta format, as we have found out that only one (the longest) was having multiple hits with holozoan LSU/SSU.
 
@@ -78,7 +78,7 @@ From that main contig, we predict ribosomal DNA seqs using HMMER 3.1 (using barr
 
 ```bash
 snakemake -j 1 main_contig-Sailors_S2_L002-rRNA.fasta \
-               main_contig-Passengers_S0_L001-rRNA.fasta 
+               main_contig-Passengers_S0_L001-rRNA.fasta
 ```
 The output sequences are the ones that have been submitted to GenBank.
 
