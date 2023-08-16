@@ -7,9 +7,14 @@
 *.bam
 *.bai
 *.bed
+*.gz
+*.pl
+*.gff3
 assembly*
 spades*
 bwa/
 db/
 trimmed/
+taxo/
 .snakemake/
+.ipynb_checkpoints/
