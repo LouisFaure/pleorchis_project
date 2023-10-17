@@ -29,7 +29,7 @@ cd pleorchis_project
 
 ## Download data
 
-It is recommended to download the original files from AWS, the `aws tool must be installed and [credentials must be setup](https://www.ncbi.nlm.nih.gov/sra/docs/sra-aws-download/).
+It is recommended to download the original fastq files from AWS, the `aws` tool must be installed and [credentials must be setup](https://www.ncbi.nlm.nih.gov/sra/docs/sra-aws-download/).
 
 ```bash
 mkdir -P data && cd data
