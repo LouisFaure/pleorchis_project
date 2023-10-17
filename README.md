@@ -24,10 +24,18 @@ cd pleorchis_project
 
 ## Download data
 
-Raw data will be made available on SRA, to download the fastq files, run the following:
+It is recommended to download the original files from AWS, the `aws tool must be installed and [credentials must be setup](https://www.ncbi.nlm.nih.gov/sra/docs/sra-aws-download/).
 
 ```bash
-ffq SRR23342065
+mkdir -P data && cd data
+# Pipe AWS links to aws s3 cp and download
+ffq --aws SRR23342063 | grep -Eo '"url": "[^"]*"' | grep -o '"[^"]*"$' | grep -0 "fastq.gz" | xargs -I {} aws s3 cp {} .
+ffq --aws SRR23342064 | grep -Eo '"url": "[^"]*"' | grep -o '"[^"]*"$' | grep -0 "fastq.gz" | xargs -I {} aws s3 cp {} .
+ffq --aws SRR23342065 | grep -Eo '"url": "[^"]*"' | grep -o '"[^"]*"$' | grep -0 "fastq.gz" | xargs -I {} aws s3 cp {} .
+
+# Remove trailing '.1'
+for f in *; do mv "$f" "${f::-2}"; done
+cd ..
 ```
 
 ### Saving undertermined reads from lane 1 as passengers
