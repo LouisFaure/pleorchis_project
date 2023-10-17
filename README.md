@@ -6,7 +6,7 @@
 This repo contains the code to reproduce the analysis of the unkown trematoda DNA, for the following study:
 
 ```
-Krupenko D.*, Miroliubov A.*, Kryukov E.*, Faure L.*, Minemizu R., Haag L., Lundgren M., Kameneva P., Kastriti M. E., Adameyko I.b
+Krupenko D.*, Miroliubov A.*, Kryukov E.*, Faure L.*, Minemizu R., Haag L., Lundgren M., Kameneva P., Kastriti M. E., Adameyko I.
 Polymorphic parasitic larvae cooperate to build swimming colonies luring hosts
 Current Biology, (2023) https://doi.org/10.1016/j.cub.2023.08.090
 ```
