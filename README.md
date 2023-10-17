@@ -1,9 +1,14 @@
 # pleorchis_project
 
+[![DOI](https://img.shields.io/badge/DOI-10.1016/j.cub.2023.08.090-blue)](https://doi.org/10.1016/j.cub.2023.08.090)
+[![SRA](https://img.shields.io/badge/Raw%20data-PRJNA931659-green)](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA931659)
+
 This repo contains the code to reproduce the analysis of the unkown trematoda DNA, for the following study:
 
 ```
-paper in publication process, citation coming soon!
+Krupenko D.*, Miroliubov A.*, Kryukov E.*, Faure L.*, Minemizu R., Haag L., Lundgren M., Kameneva P., Kastriti M. E., Adameyko I.b
+Polymorphic parasitic larvae cooperate to build swimming colonies luring hosts
+Current Biology, (2023) https://doi.org/10.1016/j.cub.2023.08.090
 ```
 
 ## Setup environment
